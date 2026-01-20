@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { Users, Calendar, CheckCircle, AlertCircle, TrendingUp, Clock } from 'lucide-react';
 import { DAYS_OF_WEEK } from '../types';

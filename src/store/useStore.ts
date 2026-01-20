@@ -300,7 +300,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     fetchSettings: async () => {
-        const { data, error } = await supabase.from('studio_settings').select('*').single();
+        const { data } = await supabase.from('studio_settings').select('*').single();
         if (data) {
             set({ settings: { studio_name: data.studio_name, logo_url: data.logo_url } });
         }

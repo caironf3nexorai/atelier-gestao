@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import type { WeekDay } from '../types';
 
@@ -278,16 +278,16 @@ function StudentCard({ student, status, onMark, isMakeup, isPaused, monthlyCount
 
     return (
         <div className={`p-4 rounded-xl border-2 transition-all flex flex-col sm:flex-row items-center justify-between gap-4 ${isPaused ? 'bg-slate-50 border-slate-100 opacity-60' :
-                isPresent ? 'bg-green-50 border-green-200' :
-                    isAbsent ? 'bg-red-50 border-red-200' :
-                        isMakeup ? 'bg-purple-50 border-purple-200' :
-                            'bg-white border-slate-100'
+            isPresent ? 'bg-green-50 border-green-200' :
+                isAbsent ? 'bg-red-50 border-red-200' :
+                    isMakeup ? 'bg-purple-50 border-purple-200' :
+                        'bg-white border-slate-100'
             }`}>
             <div className="text-center sm:text-left flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg hidden sm:flex ${isPaused ? 'bg-slate-200 text-slate-400' :
-                        isPresent ? 'bg-green-100 text-green-600' :
-                            isAbsent ? 'bg-red-100 text-red-600' :
-                                'bg-slate-100 text-slate-400'
+                    isPresent ? 'bg-green-100 text-green-600' :
+                        isAbsent ? 'bg-red-100 text-red-600' :
+                            'bg-slate-100 text-slate-400'
                     }`}>
                     {student.name.charAt(0)}
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Phone } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { DAYS_OF_WEEK } from '../types';
