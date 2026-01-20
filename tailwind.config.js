@@ -8,14 +8,14 @@ export default {
         extend: {
             colors: {
                 brand: {
-                    50: '#fffffa',
-                    100: '#feffdb',
-                    200: '#feffba',
-                    300: '#fdfe98', // The base color requested (Using as 300/400 base)
-                    400: '#fdfe98',
-                    500: '#fcfd50', // Slightly darker for visibility as "Main"
-                    600: '#e3e530', // Hover state
-                    700: '#c5c710',
+                    50: '#fffbf0',
+                    100: '#fff4d6',
+                    200: '#ffe6ad',
+                    300: '#ffd275',
+                    400: '#ffc238',
+                    500: '#fec22c', // Strong Yellow (Main)
+                    600: '#e0a010', // Hover
+                    700: '#b87d0a', // Active
                 },
                 secondary: {
                     50: '#f5f3ff',
