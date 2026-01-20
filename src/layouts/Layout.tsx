@@ -17,7 +17,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { to: '/', icon: Home, label: 'Início' },
         { to: '/chamada', icon: Calendar, label: 'Chamada' },
         { to: '/turmas', icon: Users, label: 'Turmas' }, // Re-added Turmas (using Users icon for now or Calendar if preferred, previous code used Calendar for both Chamada and Turmas, maybe use a different icon like 'BookOpen' or 'GraduationCap' if available, but I'll stick to what was likely intended or standard. The hardcoded JSX used Calendar. Let's checks imports)
-        { to: '/alunas', icon: Users, label: 'Alunas' },
+        { to: '/alunas', icon: Users, label: 'Alunos' },
         { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
         { to: '/configuracoes', icon: Settings, label: 'Configurações' },
     ];
