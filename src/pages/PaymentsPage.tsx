@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { Plus, Check, Trash2, AlertCircle, DollarSign, Calendar, Clock, Edit, Filter, ArrowRight } from 'lucide-react';
+import { Plus, Check, Trash2, AlertCircle, DollarSign, Calendar, Clock, Edit } from 'lucide-react';
 import type { Payment } from '../types';
 
 import { PaymentStatsModal } from '../components/PaymentStatsModal';
@@ -380,7 +380,7 @@ export function PaymentsPage() {
                                 )}
                                 {payment.status === 'paid' && (
                                     <div className="flex-1 bg-slate-50 text-slate-400 py-2 rounded-lg text-sm font-medium text-center cursor-default">
-                                        Pago em {new Date(payment.paid_at).toLocaleDateString('pt-BR')}
+                                        Pago em {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('pt-BR') : ''}
                                     </div>
                                 )}
                                 <button

@@ -255,7 +255,7 @@ export function Dashboard() {
                                         <li key={i} className="p-3 bg-orange-50 rounded-xl flex justify-between items-center border border-orange-100">
                                             <div>
                                                 <p className="font-bold text-slate-700">{c.studentName || 'Aluno(a) Removido(a)'}</p>
-                                                <p className="text-xs text-orange-700">Falta em: {new Date(c.date_generated).toLocaleDateString('pt-BR')}</p>
+                                                <p className="text-xs text-orange-700">Falta em: {new Date(c.generated_from_date).toLocaleDateString('pt-BR')}</p>
                                             </div>
                                             <span className="text-xs font-bold bg-white px-2 py-1 rounded border border-orange-200 text-orange-600">
                                                 1 Crédito

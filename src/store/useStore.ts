@@ -31,7 +31,7 @@ interface AppState {
     updatePayment: (id: string, data: Partial<Payment>) => Promise<void>;
     updateFuturePayments: (studentId: string, fromDate: string, newDay: number, newAmount?: number) => Promise<void>;
     markAsPaid: (id: string) => Promise<void>;
-    deletePayment: (id: string) => Promise<void>;
+    deletePayment: (id: string, deleteFuture?: boolean) => Promise<void>;
 
     settings: {
         studio_name: string;

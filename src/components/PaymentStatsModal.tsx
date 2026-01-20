@@ -1,5 +1,4 @@
-import React from 'react';
-import { X, Check, Clock, AlertCircle, DollarSign } from 'lucide-react';
+import { X, Check, Clock, AlertCircle } from 'lucide-react';
 import type { Payment, Student } from '../types';
 
 interface PaymentStatsModalProps {
@@ -89,8 +88,8 @@ export function PaymentStatsModal({ isOpen, onClose, type, payments, students, t
                                                 <div className="flex items-center gap-2">
                                                     {getStatusIcon(payment.status, payment.due_date)}
                                                     <span className={`text-sm ${payment.status === 'paid' ? 'text-green-600' :
-                                                            payment.status === 'pending' && payment.due_date < new Date().toISOString().split('T')[0] ? 'text-red-600' :
-                                                                'text-slate-500'
+                                                        payment.status === 'pending' && payment.due_date < new Date().toISOString().split('T')[0] ? 'text-red-600' :
+                                                            'text-slate-500'
                                                         }`}>
                                                         {payment.status === 'paid' ? 'Pago' :
                                                             payment.status === 'pending' && payment.due_date < new Date().toISOString().split('T')[0] ? 'Atrasado' :
