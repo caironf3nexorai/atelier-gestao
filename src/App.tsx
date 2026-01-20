@@ -7,14 +7,16 @@ import { StudentList } from './pages/StudentList';
 import { AttendancePage } from './pages/AttendancePage';
 import { ClassesPage } from './pages/ClassesPage';
 import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
+import { PaymentsPage } from './pages/PaymentsPage';
 
 console.log('App.tsx modules loaded');
 
 function App() {
-  const { fetchData } = useStore();
+  const { fetchData, fetchPayments } = useStore();
 
   useEffect(() => {
     fetchData();
+    fetchPayments();
   }, [fetchData]);
 
   console.log('App component rendering...');
@@ -26,6 +28,7 @@ function App() {
           <Route path="/alunas" element={<StudentList />} />
           <Route path="/turmas" element={<ClassesPage />} />
           <Route path="/chamada" element={<AttendancePage />} />
+          <Route path="/financeiro" element={<PaymentsPage />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         </Routes>
       </Layout>

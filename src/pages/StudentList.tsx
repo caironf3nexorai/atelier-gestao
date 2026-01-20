@@ -31,8 +31,8 @@ export function StudentList() {
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Alunas</h2>
-                    <p className="text-slate-500">Gerencie todas as alunas matriculadas</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Alunos</h2>
+                    <p className="text-slate-500">Gerencie todos os alunos matriculados</p>
                 </div>
                 <button
                     onClick={() => {
@@ -42,7 +42,7 @@ export function StudentList() {
                     className="bg-brand-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-brand-700 transition-colors shadow-sm shadow-brand-200"
                 >
                     <Plus size={20} />
-                    Nova Aluna
+                    Novo Aluno
                 </button>
             </div>
 
@@ -73,12 +73,6 @@ export function StudentList() {
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     <span className="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-1 rounded-md">
                                         {getClassName(student.class_id)}
-                                    </span>
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${student.activity === 'ceramica' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                                        student.activity === 'bordado' ? 'bg-pink-50 text-pink-700 border-pink-100' :
-                                            'bg-blue-50 text-blue-700 border-blue-100'
-                                        }`}>
-                                        {student.activity.charAt(0).toUpperCase() + student.activity.slice(1)}
                                     </span>
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
                                         {student.plan}

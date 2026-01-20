@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import type { Student, ClassGroup, AttendanceRecord, MakeupCredit, AttendanceStatus } from '../types';
+import type { Student, ClassGroup, AttendanceRecord, MakeupCredit, AttendanceStatus, Payment } from '../types';
 
 interface AppState {
     students: Student[];
     classes: ClassGroup[];
     attendance: AttendanceRecord[];
     makeupCredits: MakeupCredit[];
+    payments: Payment[];
 
     loading: boolean;
     error: string | null;
@@ -24,6 +25,14 @@ interface AppState {
     markAttendance: (date: string, studentId: string, status: AttendanceStatus, classId?: string) => Promise<void>;
     addMakeupStudent: (date: string, studentId: string, targetClassId: string) => Promise<void>;
 
+    // Payments
+    fetchPayments: () => Promise<void>;
+    createPayments: (payments: Omit<Payment, 'id' | 'status' | 'created_at'>[]) => Promise<void>;
+    updatePayment: (id: string, data: Partial<Payment>) => Promise<void>;
+    updateFuturePayments: (studentId: string, fromDate: string, newDay: number, newAmount?: number) => Promise<void>;
+    markAsPaid: (id: string) => Promise<void>;
+    deletePayment: (id: string) => Promise<void>;
+
     settings: {
         studio_name: string;
         logo_url: string | null;
@@ -39,6 +48,7 @@ export const useStore = create<AppState>((set, get) => ({
     classes: [],
     attendance: [],
     makeupCredits: [],
+    payments: [],
     loading: false,
     error: null,
 
@@ -49,12 +59,14 @@ export const useStore = create<AppState>((set, get) => ({
                 { data: students },
                 { data: classes },
                 { data: attendance },
-                { data: credits }
+                { data: credits },
+                { data: payments }
             ] = await Promise.all([
                 supabase.from('students').select('*').order('name'),
                 supabase.from('classes').select('*').order('name'),
                 supabase.from('attendance').select('*'),
                 supabase.from('makeup_credits').select('*'),
+                supabase.from('payments').select('*').order('due_date', { ascending: true }),
             ]);
 
             // Map students to include object structure for pause_period if needed
@@ -71,6 +83,7 @@ export const useStore = create<AppState>((set, get) => ({
                 classes: (classes || []) as ClassGroup[],
                 attendance: (attendance || []) as AttendanceRecord[],
                 makeupCredits: (credits || []) as MakeupCredit[],
+                payments: (payments || []) as Payment[],
                 loading: false
             });
         } catch (error: any) {
@@ -85,7 +98,9 @@ export const useStore = create<AppState>((set, get) => ({
             ...rest,
             class_id: rest.class_id || null, // Converte string vazia para null
             pause_start: pause_period?.start_date || null,
-            pause_end: pause_period?.end_date || null
+            pause_end: pause_period?.end_date || null,
+            // Ensure due_day is present, default to 10 if not (though form should enforce)
+            due_day: rest.due_day || 10
         };
 
         const { data, error } = await supabase.from('students').insert(dbData).select().single();
@@ -105,7 +120,77 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         set(state => ({ students: [...state.students, newStudent] }));
-        alert('Aluna salva com sucesso! 🎉');
+
+        // --- AUTO-GENERATE PAYMENTS (12 MONTHS) ---
+        // Logic: Generate for the next 12 months starting from current month.
+        // Uses the student's due_day.
+        try {
+            const paymentsToCreate = [];
+            const today = new Date();
+            const dueDay = dbData.due_day;
+            const amount = 170.00;
+
+            // 1. Generate CURRENT MONTH payment (Upfront / Paid Now)
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth();
+            const currentMonthStr = (currentMonth + 1).toString().padStart(2, '0');
+            // For the paid record, we can use today's date as due_date or the calculated due date.
+            // Let's use the calculated one for consistency, or today? 
+            // Usually "Matricula payment" is recorded as paid today.
+            const todayStr = today.toISOString().split('T')[0];
+
+            paymentsToCreate.push({
+                student_id: newStudent.id,
+                due_date: todayStr, // Paid today
+                amount: amount,
+                month_ref: `${currentYear}-${currentMonthStr}`,
+                status: 'paid',
+                paid_at: todayStr
+            });
+
+            // 2. Generate NEXT 12 MONTHS (Pending)
+            // Always start from NEXT month, as the first payment is paid upfront.
+            const startYear = today.getFullYear();
+            const startMonth = today.getMonth() + 1; // Start loop next month
+
+            for (let i = 0; i < 12; i++) {
+                // new Date(year, month, ...) handles overflow correctly (e.g. month 12 becomes Jan of next year)
+                const targetDate = new Date(startYear, startMonth + i, 1);
+                const year = targetDate.getFullYear();
+                const month = targetDate.getMonth();
+
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const dayToUse = Math.min(dueDay, daysInMonth);
+
+                const safeMonth = (month + 1).toString().padStart(2, '0');
+                const safeDay = dayToUse.toString().padStart(2, '0');
+                const dueDateString = `${year}-${safeMonth}-${safeDay}`;
+                const monthRef = `${year}-${safeMonth}`;
+
+                paymentsToCreate.push({
+                    student_id: newStudent.id,
+                    due_date: dueDateString,
+                    amount: amount,
+                    month_ref: monthRef,
+                    status: 'pending' // explicit for type matching
+                });
+            }
+
+            // Call createPayments (which handles batch insert)
+            // Note: We need to access the store's createPayments, but we are inside the store action.
+            // We can call get().createPayments, but createPayments updates state which might be async/racey.
+            // Better to just insert to DB here to ensure atomicity-ish or call the internal logic.
+            // Let's call the public action to keep state in sync.
+            const store = get();
+            await store.createPayments(paymentsToCreate);
+
+        } catch (payError) {
+            console.error("Error auto-generating payments:", payError);
+            alert("Aluna salva, mas erro ao gerar cobranças automáticas.");
+            // Non-blocking, student is already saved.
+        }
+
+        alert('Aluna salva com sucesso! (12 Mensalidades geradas) 🎉');
     },
 
     updateStudent: async (id, studentData) => {
@@ -291,6 +376,186 @@ export const useStore = create<AppState>((set, get) => ({
         set(state => ({
             attendance: [...state.attendance, data]
         }));
+    },
+
+    // --- PAYMENTS ACTIONS ---
+    fetchPayments: async () => {
+        // Optimization: Fetch only 'pending' debts OR 'any' payments from the current year.
+        // This prevents the app from loading 10 years of history and crashing, without deleting data.
+        const startOfYear = `${new Date().getFullYear()}-01-01`;
+
+        // .or() syntax: 'status.eq.pending,due_date.gte.2026-01-01'
+        const { data, error } = await supabase
+            .from('payments')
+            .select('*')
+            .or(`status.eq.pending,due_date.gte.${startOfYear}`)
+            .order('due_date', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching payments:', error);
+            return;
+        }
+        set({ payments: (data || []) as Payment[] });
+    },
+
+    createPayments: async (paymentsData) => {
+        const { data, error } = await supabase.from('payments').insert(
+            paymentsData.map(p => ({ ...p, status: 'pending' }))
+        ).select();
+
+        if (error) {
+            console.error('Error creating payments:', error);
+            alert('Erro ao criar cobranças.');
+            return;
+        }
+        set(state => ({ payments: [...state.payments, ...(data || [])] }));
+        alert('Cobranças geradas com sucesso!');
+    },
+
+    updatePayment: async (id, data) => {
+        const { error } = await supabase.from('payments').update(data).eq('id', id);
+        if (error) {
+            console.error('Error updating payment:', error);
+            alert('Erro ao atualizar cobrança.');
+            return;
+        }
+        set(state => ({
+            payments: state.payments.map(p => p.id === id ? { ...p, ...data } : p)
+        }));
+        alert('Cobrança atualizada!');
+    },
+
+    updateFuturePayments: async (studentId, fromDate, newDay, newAmount) => {
+        // 1. Fetch pending payments after fromDate
+        const { data: futurePayments, error } = await supabase.from('payments')
+            .select('*')
+            .eq('student_id', studentId)
+            .eq('status', 'pending')
+            .gt('due_date', fromDate);
+
+        if (error) {
+            console.error('Error fetching future payments:', error);
+            return;
+        }
+
+        if (!futurePayments || futurePayments.length === 0) {
+            alert('Não há cobranças futuras para atualizar.');
+            return;
+        }
+
+        // 2. Prepare updates
+        const updates = futurePayments.map(p => {
+            // Robust Date Clamping
+            const currentDueDate = new Date(p.due_date + 'T12:00:00');
+            const year = currentDueDate.getFullYear();
+            const month = currentDueDate.getMonth(); // 0-indexed
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const dayToUse = Math.min(newDay, daysInMonth);
+
+            const safeMonth = (month + 1).toString().padStart(2, '0');
+            const safeDay = dayToUse.toString().padStart(2, '0');
+            const newDateString = `${year}-${safeMonth}-${safeDay}`;
+
+            return {
+                id: p.id,
+                due_date: newDateString,
+                amount: newAmount !== undefined ? newAmount : p.amount
+            };
+        });
+
+        // 3. Execute updates
+        let errorCount = 0;
+        for (const update of updates) {
+            const { error: upError } = await supabase.from('payments').update({
+                due_date: update.due_date,
+                amount: update.amount
+            }).eq('id', update.id);
+            if (upError) errorCount++;
+        }
+
+        if (errorCount > 0) {
+            alert(`Algumas cobranças não puderam ser atualizadas.`);
+        } else {
+            alert('Todas as cobranças futuras foram atualizadas (com correção de dia)!');
+        }
+
+        // Refresh local
+        const state = get();
+        await state.fetchPayments();
+    },
+
+    markAsPaid: async (id) => {
+        // 1. Optimistic Update
+        set(state => ({
+            payments: state.payments.map(p =>
+                p.id === id ? { ...p, status: 'paid', paid_at: new Date().toISOString() } : p
+            )
+        }));
+
+        // 2. Database Update
+        const { error } = await supabase.from('payments').update({
+            status: 'paid',
+            paid_at: new Date().toISOString()
+        }).eq('id', id);
+
+        if (error) {
+            console.error('Error marking payment as paid:', error);
+            alert('Erro ao confirmar pagamento.');
+            // Revert on error
+            set(state => ({
+                payments: state.payments.map(p => p.id === id ? { ...p, status: 'pending', paid_at: undefined } : p)
+            }));
+            return;
+        }
+
+        alert('Pagamento confirmado! 💰');
+        // Fetch to sync triggers if any
+        const state = get();
+        await state.fetchPayments();
+    },
+
+
+    deletePayment: async (id, deleteFuture = false) => {
+        // Find the payment first to get student_id and date
+        const paymentToDelete = get().payments.find(p => p.id === id);
+        if (!paymentToDelete) return;
+
+        if (deleteFuture) {
+            // Delete this payment AND all future PENDING payments for this student
+            const { error } = await supabase.from('payments')
+                .delete()
+                .eq('student_id', paymentToDelete.student_id)
+                .eq('status', 'pending')
+                .gte('due_date', paymentToDelete.due_date); // Greater or Equal to delete the current one too + futures
+
+            if (error) {
+                console.error('Error deleting payments:', error);
+                alert('Erro ao excluir cobranças.');
+                return;
+            }
+
+            // Update local state - remove all matching
+            set(state => ({
+                payments: state.payments.filter(p =>
+                    !(p.student_id === paymentToDelete.student_id &&
+                        p.status === 'pending' &&
+                        p.due_date >= paymentToDelete.due_date)
+                )
+            }));
+            alert('Cobrança atual e futuras removidas.');
+
+        } else {
+            // Delete ONLY this specific payment (original behavior)
+            const { error } = await supabase.from('payments').delete().eq('id', id);
+            if (error) {
+                console.error('Error deleting payment:', error);
+                alert('Erro ao excluir cobrança.');
+                return;
+            }
+            set(state => ({ payments: state.payments.filter(p => p.id !== id) }));
+            alert('Cobrança removida.');
+        }
     },
 
     // --- SETTINGS ACTIONS ---

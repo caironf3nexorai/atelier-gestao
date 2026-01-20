@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; // Added useEffect
-import { Menu, X, Home, Users, Calendar, Settings, LogOut } from 'lucide-react';
+import { Menu, X, Home, Users, Calendar, Settings, LogOut, DollarSign } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useStore } from '../store/useStore'; // Import useStore
@@ -18,6 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { to: '/chamada', icon: Calendar, label: 'Chamada' },
         { to: '/turmas', icon: Users, label: 'Turmas' }, // Re-added Turmas (using Users icon for now or Calendar if preferred, previous code used Calendar for both Chamada and Turmas, maybe use a different icon like 'BookOpen' or 'GraduationCap' if available, but I'll stick to what was likely intended or standard. The hardcoded JSX used Calendar. Let's checks imports)
         { to: '/alunas', icon: Users, label: 'Alunas' },
+        { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
         { to: '/configuracoes', icon: Settings, label: 'Configurações' },
     ];
 

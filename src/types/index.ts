@@ -7,7 +7,8 @@ export interface ClassGroup {
     name: string;
     day_of_week: WeekDay;
     time: string; // "14:00"
-    activities: ActivityType[];
+    activity?: ActivityType; // @deprecated
+    activities?: string[]; // Nova: Array de Atividades
 }
 
 export type PlanType = '1x' | '2x';
@@ -20,12 +21,14 @@ export interface Student {
     phone?: string;
     active: boolean;
     class_id?: string;
-    activity: ActivityType; // Nova: Atividade Principal
+    activity: ActivityType; // @deprecated
     plan?: PlanType; // 1x ou 2x
     pause_period?: {
         start_date: string;
         end_date: string;
     };
+    created_at?: string;
+    due_day?: number; // Nova: Dia de Vencimento
 }
 
 export const DAYS_OF_WEEK: Record<WeekDay, string> = {
@@ -55,4 +58,16 @@ export interface MakeupCredit {
     generated_from_date: string; // Data da falta
     used_at_date?: string; // Data da reposição
     expires_at?: string;
+}
+
+export type PaymentStatus = 'pending' | 'paid' | 'overdue';
+
+export interface Payment {
+    id: string;
+    student_id: string;
+    amount?: number;
+    due_date: string; // YYYY-MM-DD
+    status: PaymentStatus;
+    paid_at?: string;
+    month_ref?: string;
 }
