@@ -213,10 +213,35 @@ export const useStore = create<AppState>((set, get) => ({
             return;
         }
 
+        // --- Handle Pause Period Logic (Auto-Remove Payments) ---
+        if (pause_period && pause_period.start_date && pause_period.end_date) {
+            // If setting a pause, remove PENDING payments in that range
+            const { error: deleteError } = await supabase.from('payments')
+                .delete()
+                .eq('student_id', id)
+                .eq('status', 'pending')
+                .gte('due_date', pause_period.start_date)
+                .lte('due_date', pause_period.end_date);
+
+            if (deleteError) {
+                console.error("Error removing paused payments:", deleteError);
+            } else {
+                // Update local payments state
+                set(state => ({
+                    payments: state.payments.filter(p =>
+                        !(p.student_id === id &&
+                            p.status === 'pending' &&
+                            p.due_date >= pause_period.start_date &&
+                            p.due_date <= pause_period.end_date)
+                    )
+                }));
+            }
+        }
+
         set(state => ({
             students: state.students.map(s => s.id === id ? { ...s, ...studentData } : s)
         }));
-        alert('Aluna atualizada com sucesso!');
+        alert('Aluna atualizada com sucesso! (Cobranças no período de pausa foram removidas)');
     },
 
     deleteStudent: async (id) => {
