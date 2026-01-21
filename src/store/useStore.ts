@@ -238,10 +238,16 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
+
+
         set(state => ({
             students: state.students.map(s => s.id === id ? { ...s, ...studentData } : s)
         }));
-        alert('Aluna atualizada com sucesso! (Cobranças no período de pausa foram removidas)');
+
+        // Force refresh of payments to ensure UI is in sync
+        await get().fetchPayments();
+
+        alert('Aluna atualizada com sucesso! (Cadastro e Financeiro sincronizados)');
     },
 
     deleteStudent: async (id) => {
