@@ -16,11 +16,14 @@ export type PlanType = '1x' | '2x';
 export interface Student {
     id: string;
     name: string;
-    age: number; // Nova: Idade
+    age?: number; // Agora calculado / Opcional
+    birth_date?: string; // Nova: Data de Nascimento (YYYY-MM-DD)
     parent_name?: string;
     phone?: string;
     active: boolean;
     class_id?: string;
+    class_id_2?: string; // Nova: Segunda Turma
+    monthly_fee?: number; // Nova: Mensalidade Personalizada
     activity: ActivityType; // @deprecated
     plan?: PlanType; // 1x ou 2x
     pause_period?: {

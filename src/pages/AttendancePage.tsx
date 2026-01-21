@@ -48,7 +48,7 @@ export function AttendancePage() {
     // 3. Filtrar Alunas Regulares
     const regularStudents = useMemo(() => {
         if (!selectedClassId) return [];
-        return students.filter(s => s.class_id === selectedClassId && s.active);
+        return students.filter(s => (s.class_id === selectedClassId || s.class_id_2 === selectedClassId) && s.active);
     }, [selectedClassId, students]);
 
     // 4. Filtrar Alunas de Reposição (Alunas com registro nesta turma/data mas que NÃO são da turma regular)

@@ -32,6 +32,8 @@ interface AppState {
     updateFuturePayments: (studentId: string, fromDate: string, newDay: number, newAmount?: number) => Promise<void>;
     markAsPaid: (id: string) => Promise<void>;
     deletePayment: (id: string, deleteFuture?: boolean) => Promise<void>;
+    generatePayments: (studentId: string, monthlyFee: number, dueDay: number) => Promise<void>;
+
 
     settings: {
         studio_name: string;
@@ -96,10 +98,14 @@ export const useStore = create<AppState>((set, get) => ({
         // Sanitize Data
         const dbData = {
             ...rest,
+            age: undefined, // Let DB handle or ignore if column dropped/nullable
             class_id: rest.class_id || null, // Converte string vazia para null
+            class_id_2: rest.class_id_2 || null, // Nova: Segunda turma
+            birth_date: rest.birth_date || null, // Nova: Data nascimento
+            monthly_fee: rest.monthly_fee ? Number(rest.monthly_fee) : 170.00, // Nova: Valor Personalizado
             pause_start: pause_period?.start_date || null,
             pause_end: pause_period?.end_date || null,
-            // Ensure due_day is present, default to 10 if not (though form should enforce)
+            // Ensure due_day is present, default to 10 if not
             due_day: rest.due_day || 10
         };
 
@@ -128,7 +134,7 @@ export const useStore = create<AppState>((set, get) => ({
             const paymentsToCreate = [];
             const today = new Date();
             const dueDay = dbData.due_day;
-            const amount = 170.00;
+            const amount = dbData.monthly_fee ? Number(dbData.monthly_fee) : 170.00;
 
             // 1. Generate CURRENT MONTH payment (Upfront / Paid Now)
             const currentYear = today.getFullYear();
@@ -197,6 +203,9 @@ export const useStore = create<AppState>((set, get) => ({
         const { pause_period, ...rest } = studentData;
         const dbData: any = { ...rest };
 
+        // Remove age as we don't save it anymore (or it's calculated)
+        delete dbData.age;
+
         if (pause_period !== undefined) {
             dbData.pause_start = pause_period?.start_date || null;
             dbData.pause_end = pause_period?.end_date || null;
@@ -204,6 +213,14 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (dbData.class_id === '') {
             dbData.class_id = null;
+        }
+
+        if (dbData.class_id_2 === '') {
+            dbData.class_id_2 = null;
+        }
+
+        if (dbData.monthly_fee) {
+            dbData.monthly_fee = Number(dbData.monthly_fee);
         }
 
         const { error } = await supabase.from('students').update(dbData).eq('id', id);
@@ -586,6 +603,88 @@ export const useStore = create<AppState>((set, get) => ({
             }
             set(state => ({ payments: state.payments.filter(p => p.id !== id) }));
             alert('Cobrança removida.');
+        }
+    },
+
+    generatePayments: async (studentId, monthlyFee, dueDay) => {
+        const amount = Number(monthlyFee);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+        const currentMonthRef = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}`;
+
+        // 1. DELETE all existing PENDING payments (to avoid duplicates/wrong values)
+        const { error: deleteError } = await supabase.from('payments')
+            .delete()
+            .eq('student_id', studentId)
+            .eq('status', 'pending');
+
+        if (deleteError) {
+            console.error('Error clearing old payments:', deleteError);
+            alert('Erro ao limpar cobranças antigas.');
+            return;
+        }
+
+        const paymentsToCreate = [];
+
+        // 2. Check if Current Month exists (Paid or Pending - though we just deleted pending)
+        // If we deleted pending, we might need to recreate current month if it wasn't paid.
+        // But checking DB is async. Let's check local state (optimistic) or DB? DB is safer.
+        const { data: existingCurrent } = await supabase.from('payments')
+            .select('id')
+            .eq('student_id', studentId)
+            .eq('month_ref', currentMonthRef)
+            .maybeSingle();
+
+        if (!existingCurrent) {
+            // Create Current Month (Pending)
+            // Use today or due day? If today > due day, it's overdue.
+            // Let's use the correct due date.
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const dayToUse = Math.min(dueDay, daysInMonth);
+            const dueDateString = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${dayToUse.toString().padStart(2, '0')}`;
+
+            paymentsToCreate.push({
+                student_id: studentId,
+                due_date: dueDateString,
+                amount: amount,
+                month_ref: currentMonthRef,
+                status: 'pending'
+            });
+        }
+
+        // 3. Generate Next 12 Months
+        const startYear = today.getFullYear();
+        const startMonth = today.getMonth() + 1; // Start loop next month
+
+        for (let i = 0; i < 12; i++) {
+            const targetDate = new Date(startYear, startMonth + i, 1);
+            const year = targetDate.getFullYear();
+            const month = targetDate.getMonth();
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const dayToUse = Math.min(dueDay, daysInMonth);
+
+            const safeMonth = (month + 1).toString().padStart(2, '0');
+            const safeDay = dayToUse.toString().padStart(2, '0');
+            const dueDateString = `${year}-${safeMonth}-${safeDay}`;
+            const monthRef = `${year}-${safeMonth}`;
+
+            paymentsToCreate.push({
+                student_id: studentId,
+                due_date: dueDateString,
+                amount: amount,
+                month_ref: monthRef,
+                status: 'pending'
+            });
+        }
+
+        // 4. Batch Insert
+        if (paymentsToCreate.length > 0) {
+            const store = get();
+            await store.createPayments(paymentsToCreate); // This handles alert and state update
+        } else {
+            alert('Nenhuma nova cobrança necessária (já existem pagas/criadas).');
         }
     },
 

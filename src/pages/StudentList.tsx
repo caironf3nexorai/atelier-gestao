@@ -15,6 +15,18 @@ export function StudentList() {
         student.parent_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const calculateAge = (birthDate?: string) => {
+        if (!birthDate) return 'N/A';
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
     const getClassName = (classId?: string) => {
         const cls = classes.find(c => c.id === classId);
         return cls ? `${DAYS_OF_WEEK[cls.day_of_week]} - ${cls.time}` : 'Sem Turma';
@@ -67,7 +79,7 @@ export function StudentList() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h3 className="font-bold text-lg text-slate-800 truncate">{student.name}</h3>
                                     <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
-                                        {student.age} anos
+                                        {student.birth_date ? `${calculateAge(student.birth_date)} anos` : 'Idade N/A'}
                                     </span>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-2">
