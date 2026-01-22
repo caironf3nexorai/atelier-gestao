@@ -71,13 +71,10 @@ export const useStore = create<AppState>((set, get) => ({
                 supabase.from('payments').select('*').order('due_date', { ascending: true }),
             ]);
 
-            // Map students to include object structure for pause_period if needed
+            // Map students to include object structure for pause_period if needed (Legacy support or cleanup)
             const formattedStudents = (students || []).map((s: any) => ({
                 ...s,
-                pause_period: (s.pause_start && s.pause_end) ? {
-                    start_date: s.pause_start,
-                    end_date: s.pause_end
-                } : undefined
+                pause_period: undefined // Removed feature
             }));
 
             set({
@@ -94,7 +91,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     addStudent: async (studentData) => {
-        const { pause_period, ...rest } = studentData;
+        const { ...rest } = studentData; // Removed pause_period
         // Sanitize Data
         const dbData = {
             ...rest,
@@ -103,8 +100,6 @@ export const useStore = create<AppState>((set, get) => ({
             class_id_2: rest.class_id_2 || null, // Nova: Segunda turma
             birth_date: rest.birth_date || null, // Nova: Data nascimento
             monthly_fee: rest.monthly_fee ? Number(rest.monthly_fee) : 170.00, // Nova: Valor Personalizado
-            pause_start: pause_period?.start_date || null,
-            pause_end: pause_period?.end_date || null,
             // Ensure due_day is present, default to 10 if not
             due_day: rest.due_day || 10
         };
@@ -118,18 +113,12 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         const newStudent = {
-            ...data,
-            pause_period: (data.pause_start && data.pause_end) ? {
-                start_date: data.pause_start,
-                end_date: data.pause_end
-            } : undefined
+            ...data
         };
 
         set(state => ({ students: [...state.students, newStudent] }));
 
         // --- AUTO-GENERATE PAYMENTS (12 MONTHS) ---
-        // Logic: Generate for the next 12 months starting from current month.
-        // Uses the student's due_day.
         try {
             const paymentsToCreate = [];
             const today = new Date();
@@ -140,9 +129,6 @@ export const useStore = create<AppState>((set, get) => ({
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth();
             const currentMonthStr = (currentMonth + 1).toString().padStart(2, '0');
-            // For the paid record, we can use today's date as due_date or the calculated due date.
-            // Let's use the calculated one for consistency, or today? 
-            // Usually "Matricula payment" is recorded as paid today.
             const todayStr = today.toISOString().split('T')[0];
 
             paymentsToCreate.push({
@@ -155,12 +141,10 @@ export const useStore = create<AppState>((set, get) => ({
             });
 
             // 2. Generate NEXT 12 MONTHS (Pending)
-            // Always start from NEXT month, as the first payment is paid upfront.
             const startYear = today.getFullYear();
-            const startMonth = today.getMonth() + 1; // Start loop next month
+            const startMonth = today.getMonth() + 1;
 
             for (let i = 0; i < 12; i++) {
-                // new Date(year, month, ...) handles overflow correctly (e.g. month 12 becomes Jan of next year)
                 const targetDate = new Date(startYear, startMonth + i, 1);
                 const year = targetDate.getFullYear();
                 const month = targetDate.getMonth();
@@ -182,34 +166,23 @@ export const useStore = create<AppState>((set, get) => ({
                 });
             }
 
-            // Call createPayments (which handles batch insert)
-            // Note: We need to access the store's createPayments, but we are inside the store action.
-            // We can call get().createPayments, but createPayments updates state which might be async/racey.
-            // Better to just insert to DB here to ensure atomicity-ish or call the internal logic.
-            // Let's call the public action to keep state in sync.
             const store = get();
             await store.createPayments(paymentsToCreate);
 
         } catch (payError) {
             console.error("Error auto-generating payments:", payError);
             alert("Aluna salva, mas erro ao gerar cobranças automáticas.");
-            // Non-blocking, student is already saved.
         }
 
         alert('Aluna salva com sucesso! (12 Mensalidades geradas) 🎉');
     },
 
     updateStudent: async (id, studentData) => {
-        const { pause_period, ...rest } = studentData;
+        const { ...rest } = studentData; // Removed pause_period
         const dbData: any = { ...rest };
 
-        // Remove age as we don't save it anymore (or it's calculated)
+        // Remove age as we don't save it anymore
         delete dbData.age;
-
-        if (pause_period !== undefined) {
-            dbData.pause_start = pause_period?.start_date || null;
-            dbData.pause_end = pause_period?.end_date || null;
-        }
 
         if (dbData.class_id === '') {
             dbData.class_id = null;
@@ -229,33 +202,6 @@ export const useStore = create<AppState>((set, get) => ({
             alert(`Erro ao atualizar aluna: ${error.message}`);
             return;
         }
-
-        // --- Handle Pause Period Logic (Auto-Remove Payments) ---
-        if (pause_period && pause_period.start_date && pause_period.end_date) {
-            // If setting a pause, remove PENDING payments in that range
-            const { error: deleteError } = await supabase.from('payments')
-                .delete()
-                .eq('student_id', id)
-                .eq('status', 'pending')
-                .gte('due_date', pause_period.start_date)
-                .lte('due_date', pause_period.end_date);
-
-            if (deleteError) {
-                console.error("Error removing paused payments:", deleteError);
-            } else {
-                // Update local payments state
-                set(state => ({
-                    payments: state.payments.filter(p =>
-                        !(p.student_id === id &&
-                            p.status === 'pending' &&
-                            p.due_date >= pause_period.start_date &&
-                            p.due_date <= pause_period.end_date)
-                    )
-                }));
-            }
-        }
-
-
 
         set(state => ({
             students: state.students.map(s => s.id === id ? { ...s, ...studentData } : s)
@@ -318,30 +264,33 @@ export const useStore = create<AppState>((set, get) => ({
         const isMakeupClass = student && classId && student.class_id !== classId;
 
         // 1. Remove registro anterior se existir (Logica simples: delete e insert novo)
-        // Isso evita duplicatas e trata a mudança de status
-        // Em um app maior, faríamos update, mas aqui simplifica a lógica de créditos
-
         const existingRecord = state.attendance.find(r =>
             r.date === date &&
             r.student_id === studentId &&
             (r.class_id === classId || (!classId))
-            // Nota: ClassId pode ser null em dados antigos, mas agora sempre passamos
         );
 
         if (existingRecord) {
             await supabase.from('attendance').delete().eq('id', existingRecord.id);
 
-            // TODO: Reverter lógica de créditos se necessário? 
-            // Por simplicidade, vamos assumir que o usuário não fica trocando mil vezes.
-            // Se trocou de Falta para Presente, teria que apagar o crédito.
+            // Se trocou de Falta para Presente, removemos o crédito gerado ESSA AULA ESPECÍFICA (se possível)
             if (existingRecord.status === 'absent' && status !== 'absent') {
-                // Tenta achar o crédito gerado por essa falta
                 const { error } = await supabase.from('makeup_credits')
                     .delete()
-                    .match({ student_id: studentId, generated_from_date: date });
+                    .match({
+                        student_id: studentId,
+                        generated_from_date: date,
+                        origin_class_id: classId // Só remove se vier desta turma
+                    });
 
                 if (!error) {
-                    set(s => ({ makeupCredits: s.makeupCredits.filter(c => !(c.student_id === studentId && c.generated_from_date === date)) }));
+                    set(s => ({
+                        makeupCredits: s.makeupCredits.filter(c => !(
+                            c.student_id === studentId &&
+                            c.generated_from_date === date &&
+                            c.origin_class_id === classId
+                        ))
+                    }));
                 }
             }
         }
@@ -361,16 +310,24 @@ export const useStore = create<AppState>((set, get) => ({
             return;
         }
 
-        // 3. Lógica de Créditos
+        // 3. Lógica de Créditos DE REPOSIÇÃO (ACUMULATIVA)
         if (!isMakeupClass) {
-            // Se for FALTA em aula regular, gera crédito
+            // Se for FALTA em aula regular, gera crédito SEMPRE
+            // Agora permitimos múltiplos créditos no mesmo dia se forem turmas diferentes (origin_class_id)
             if (status === 'absent') {
-                // Verifica se já existe para não duplicar
-                const exists = state.makeupCredits.some(c => c.student_id === studentId && c.generated_from_date === date);
-                if (!exists) {
+                // Removemos a verificação de 'exists' global de data. 
+                // Apenas checamos se já não gerou para ESTA turma nesta data (caso de duplo clique ou race condition)
+                const alreadyGeneratedForThisClass = state.makeupCredits.some(c =>
+                    c.student_id === studentId &&
+                    c.generated_from_date === date &&
+                    c.origin_class_id === classId
+                );
+
+                if (!alreadyGeneratedForThisClass) {
                     const newCredit = {
                         student_id: studentId,
-                        generated_from_date: date
+                        generated_from_date: date,
+                        origin_class_id: classId // Importante: Salva qual aula gerou a falta
                     };
                     const { data: creditData } = await supabase.from('makeup_credits').insert(newCredit).select().single();
                     if (creditData) {
@@ -379,9 +336,9 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
         } else {
-            // Se for PRESENÇA em aula de reposição, consome o crédito
+            // Se for PRESENÇA em aula de reposição, consome UM crédito
             if (status === 'present') {
-                // Pega o primeiro crédito disponível
+                // Pega o primeiro crédito disponível (FIFO)
                 const creditToUse = state.makeupCredits.find(c => c.student_id === studentId && !c.used_at_date);
                 if (creditToUse) {
                     await supabase.from('makeup_credits')
@@ -396,7 +353,7 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
-        // Atualiza Attenance Local
+        // Atualiza Attendance Local
         set(state => ({
             attendance: [
                 ...state.attendance.filter(r => r.id !== existingRecord?.id),

@@ -59,6 +59,7 @@ export interface MakeupCredit {
     id: string;
     student_id: string;
     generated_from_date: string; // Data da falta
+    origin_class_id?: string; // Nova: Turma de origem da falta
     used_at_date?: string; // Data da reposição
     expires_at?: string;
 }

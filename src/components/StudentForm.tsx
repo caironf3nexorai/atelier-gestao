@@ -42,19 +42,10 @@ export function StudentForm({ onClose, student }: StudentFormProps) {
 
         const finalData: any = { ...formData, active: true };
 
-        // Formata o objeto pause_period apenas se houver datas preenchidas
-        if (formData.pause_start && formData.pause_end) {
-            finalData.pause_period = {
-                start_date: formData.pause_start,
-                end_date: formData.pause_end
-            };
-        } else {
-            finalData.pause_period = undefined; // Garante que limpa se tiver vazio
-        }
-
-        // Remove os campos auxiliares antes de salvar
+        // Remove os campos auxiliares antes de salvar (embora não usados mais, mantém limpeza)
         delete finalData.pause_start;
         delete finalData.pause_end;
+        finalData.pause_period = undefined; // Garante que não envia lixo
 
         if (student) {
             updateStudent(student.id, finalData);
@@ -251,35 +242,7 @@ export function StudentForm({ onClose, student }: StudentFormProps) {
                                 </div>
                             </div>
 
-                            {/* Exibe Pausa APENAS se estiver editando um aluno existente */}
-                            {student && (
-                                <div className="col-span-2 border-t pt-4 mt-2 animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="block text-sm font-bold text-slate-700">Período de Pausa / Férias</label>
-                                        <span className="text-xs text-slate-400 font-normal">Opcional</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">Início</label>
-                                            <input
-                                                type="date"
-                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                                                value={formData.pause_start}
-                                                onChange={e => setFormData({ ...formData, pause_start: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-slate-500 mb-1">Fim (Retorno)</label>
-                                            <input
-                                                type="date"
-                                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-                                                value={formData.pause_end}
-                                                onChange={e => setFormData({ ...formData, pause_end: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+
                         </div>
                     </form>
                 </div>

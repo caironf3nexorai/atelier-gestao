@@ -56,7 +56,8 @@ export function Dashboard() {
                 list: confirmedAttendanceList
             },
             pendingMakeups: {
-                count: pendingMakeupsList.length,
+                count: new Set(pendingMakeupsList.map(i => i.student_id)).size, // Unique Students
+                totalCredits: pendingMakeupsList.length, // Total Credits
                 list: pendingMakeupsList
             }
         };
@@ -120,11 +121,12 @@ export function Dashboard() {
                     onClick={() => setActiveModal('attendance')}
                 />
                 <StatCard
-                    title="Reposições Pendentes"
+                    title="Alunas em Reposição"
                     value={data.pendingMakeups.count}
+                    subtitle={`${data.pendingMakeups.totalCredits} aulas pendentes`}
                     icon={<AlertCircle size={24} className="text-orange-600" />}
                     bg="bg-orange-50"
-                    alert={data.pendingMakeups.count > 5}
+                    alert={data.pendingMakeups.totalCredits > 5}
                     onClick={() => setActiveModal('makeups')}
                 />
             </div>
@@ -251,17 +253,33 @@ export function Dashboard() {
                             )}
                             {activeModal === 'makeups' && (
                                 <ul className="space-y-2">
-                                    {data.pendingMakeups.list.length > 0 ? data.pendingMakeups.list.map((c, i) => (
-                                        <li key={i} className="p-3 bg-orange-50 rounded-xl flex justify-between items-center border border-orange-100">
-                                            <div>
-                                                <p className="font-bold text-slate-700">{c.studentName || 'Aluno(a) Removido(a)'}</p>
-                                                <p className="text-xs text-orange-700">Falta em: {new Date(c.generated_from_date).toLocaleDateString('pt-BR')}</p>
-                                            </div>
-                                            <span className="text-xs font-bold bg-white px-2 py-1 rounded border border-orange-200 text-orange-600">
-                                                1 Crédito
-                                            </span>
-                                        </li>
-                                    )) : <p className="text-center text-slate-400 py-4">Nenhuma reposição pendente.</p>}
+                                    {(() => {
+                                        const grouped = Object.values(data.pendingMakeups.list.reduce((acc: any, curr: any) => {
+                                            if (!acc[curr.student_id]) {
+                                                acc[curr.student_id] = { ...curr, count: 0, dates: [] };
+                                            }
+                                            acc[curr.student_id].count++;
+                                            acc[curr.student_id].dates.push(curr.generated_from_date);
+                                            return acc;
+                                        }, {}));
+
+                                        return grouped.length > 0 ? grouped.map((item: any, i) => (
+                                            <li key={i} className="p-3 bg-orange-50 rounded-xl flex justify-between items-center border border-orange-100">
+                                                <div>
+                                                    <p className="font-bold text-slate-700">{item.studentName || 'Aluno(a) Removido(a)'}</p>
+                                                    <p className="text-xs text-orange-700">
+                                                        {item.count === 1
+                                                            ? `Falta em: ${new Date(item.generated_from_date).toLocaleDateString('pt-BR')}`
+                                                            : `${item.count} faltas pendentes`
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <span className="text-xs font-bold bg-white px-2 py-1 rounded border border-orange-200 text-orange-600">
+                                                    {item.count} Crédito{item.count > 1 ? 's' : ''}
+                                                </span>
+                                            </li>
+                                        )) : <p className="text-center text-slate-400 py-4">Nenhuma reposição pendente.</p>;
+                                    })()}
                                 </ul>
                             )}
                         </div>

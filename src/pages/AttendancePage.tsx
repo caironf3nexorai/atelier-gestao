@@ -67,8 +67,11 @@ export function AttendancePage() {
             return student && student.class_id !== selectedClassId;
         });
 
+        // Deduplicate records just in case (safety net)
+        const uniqueExtraRecords = [...new Map(extraRecords.map(item => [item.student_id, item])).values()];
+
         // Retorna os objetos de aluno
-        return extraRecords.map(r => students.find(s => s.id === r.student_id)).filter(Boolean) as typeof students;
+        return uniqueExtraRecords.map(r => students.find(s => s.id === r.student_id)).filter(Boolean) as typeof students;
     }, [selectedClassId, attendance, dateStr, students]);
 
     // 5. Alunas Disponíveis para Reposição (Têm crédito e não estão nesta turma E não foram adicionadas ainda)
